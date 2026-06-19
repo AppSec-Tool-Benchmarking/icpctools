@@ -1,0 +1,34 @@
+# Benchmark scan — manual trigger only. No auto-runs, no MR decoration, no pipeline failures.
+# icpctools: Java (Ant) — build with Ant before scanning.
+
+appsec-veracode:
+  stage: test
+  image: eclipse-temurin:17-jdk
+  when: manual
+  allow_failure: true
+  variables:
+    VERACODE_API_ID: $CI_VERACODE_API_ID
+    VERACODE_API_KEY: $CI_VERACODE_API_KEY
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq ant curl unzip
+    - ant build
+  script:
+    - mkdir -p results/veracode
+    - curl -sLO https://downloads.veracode.com/securityscan/pipeline-scan-LATEST.zip
+    - unzip -q pipeline-scan-LATEST.zip pipeline-scan.jar
+    # Ant build output is typically in dist/ or build/ — adjust if needed
+    - |
+      ARTIFACT=$(find . -name "*.jar" -not -path "./pipeline-scan.jar" \
+        -not -path "./results/*" -not -path "./.git/*" | head -1)
+      echo "Scanning artifact: $ARTIFACT"
+      java -jar pipeline-scan.jar \
+        --veracode_api_id "$VERACODE_API_ID" \
+        --veracode_api_key "$VERACODE_API_KEY" \
+        --file "$ARTIFACT" \
+        --fail_on_severity "" \
+        --json_output_file results/veracode/veracode-results.json || true
+  artifacts:
+    when: always
+    paths:
+      - results/veracode/
+    expire_in: 30 days

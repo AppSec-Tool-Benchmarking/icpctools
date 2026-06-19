@@ -1,0 +1,27 @@
+# Benchmark scan — manual trigger only. No auto-runs, no MR decoration, no pipeline failures.
+# icpctools: Java (Ant) — build with Ant before Polaris scan.
+
+appsec-polaris:
+  stage: test
+  image: eclipse-temurin:17-jdk
+  when: manual
+  allow_failure: true
+  variables:
+    POLARIS_SERVER_URL: $CI_POLARIS_SERVER_URL
+    POLARIS_ACCESS_TOKEN: $CI_POLARIS_ACCESS_TOKEN
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq ant curl unzip
+    - ant build
+  script:
+    - mkdir -p results/polaris
+    - curl -fsSLo polaris.zip "$POLARIS_SERVER_URL/api/tools/polaris_cli-linux64.zip" || true
+    - unzip -q polaris.zip || true
+    - chmod +x polaris 2>/dev/null || true
+    - ./polaris analyze
+        --project "icpctools-benchmark"
+        --output-file results/polaris/polaris-results.json || true
+  artifacts:
+    when: always
+    paths:
+      - results/polaris/
+    expire_in: 30 days

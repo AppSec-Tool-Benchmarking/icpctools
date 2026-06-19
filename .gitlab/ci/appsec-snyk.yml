@@ -1,0 +1,35 @@
+# Benchmark scan — manual trigger only. No auto-runs, no MR decoration, no pipeline failures.
+
+appsec-snyk-code:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  when: manual
+  allow_failure: true
+  variables:
+    SNYK_TOKEN: $CI_SNYK_TOKEN
+  script:
+    - npm install -g snyk
+    - mkdir -p results/snyk
+    - snyk code test --sarif-file-output=results/snyk/snyk-code.sarif --severity-threshold=low || true
+  artifacts:
+    when: always
+    paths:
+      - results/snyk/
+    expire_in: 30 days
+
+appsec-snyk-opensource:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  when: manual
+  allow_failure: true
+  variables:
+    SNYK_TOKEN: $CI_SNYK_TOKEN
+  script:
+    - npm install -g snyk
+    - mkdir -p results/snyk
+    - snyk test --json-file-output=results/snyk/snyk-opensource.json --severity-threshold=low || true
+  artifacts:
+    when: always
+    paths:
+      - results/snyk/
+    expire_in: 30 days

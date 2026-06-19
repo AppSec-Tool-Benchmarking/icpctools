@@ -1,0 +1,55 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+# Register this file as a separate Azure Pipeline in Azure DevOps.
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: JavaToolInstaller@0
+    displayName: "Install JDK 17"
+    inputs:
+      versionSpec: "17"
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalled
+
+  - script: |
+      sudo apt-get update -qq && sudo apt-get install -y ant
+    displayName: "Install Apache Ant"
+
+  - task: Ant@1
+    displayName: "Build — ant build"
+    inputs:
+      buildFile: build.xml
+      targets: build
+    continueOnError: true
+
+  - script: mkdir -p results/veracode
+    displayName: "Create results directory"
+
+  - script: |
+      curl -O https://downloads.veracode.com/securityscan/pipeline-scan-LATEST.zip
+      unzip -o pipeline-scan-LATEST.zip
+    displayName: "Download Veracode Pipeline Scan"
+
+  - script: |
+      java -jar pipeline-scan.jar \
+        --veracode_api_id $(AZ_VERACODE_API_ID) \
+        --veracode_api_key $(AZ_VERACODE_API_KEY) \
+        --file dist/ \
+        --fail_on_severity "" \
+        --json_output_file results/veracode/veracode-results.json || true
+    displayName: "AppSec Benchmark — Veracode Pipeline Scan [icpctools]"
+    continueOnError: true
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: results/veracode/
+      artifactName: veracode-results
